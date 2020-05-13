@@ -143,16 +143,30 @@ public:
     }
 };
 
+void example_on_threadsafe_stack()
+{
+    threadsafe_stack<int> s;
+    s.push(1);
+    auto f_1 = [](threadsafe_stack<int>& s){
+        if(!s.empty())
+        {
+            int value;
+            s.pop(value);
+            do_sth(value);
+        }
+    };
+
+    /// Ordering threads here doesnt guarantee that t_1 will execute its function first.
+    std::thread t_1(f_1, std::ref(s));
+    std::thread t_2([](threadsafe_stack<int>& s){ s.pop(); }, std::ref(s));
+    
+    t_1.join();
+    t_2.join();
+}
+
+
 int main()
 {
     example_on_std_stack();
-
-    threadsafe_stack<int> si;
-    si.push(5);
-    si.pop();
-    if(!si.empty())
-    {
-        int x;
-        si.pop(x);
-    }
+    example_on_threadsafe_stack();
 }
