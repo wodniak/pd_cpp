@@ -6,6 +6,7 @@
 #include <exception>
 #include <memory>
 #include <thread>
+#include <mutex>
 
 /*
 template<typename T,typename Container=std::deque<T> >
@@ -26,16 +27,55 @@ public:
 };
 */
 
+template<typename T>
+class stack_wrapper
+{
+private:
+    std::stack<T> data;
+    std::mutex m;
+public:
+    stack_wrapper(){};
+    ///copy/move constructors, swap etc.
+
+    bool empty() const
+    {
+        std::lock_guard<std::mutex> lock(other.m);
+        return data.empty();
+    }
+    size_t size() const
+    {
+        std::lock_guard<std::mutex> lock(other.m);
+        return data.size();
+    }
+    T& top()
+    {
+        std::lock_guard<std::mutex> lock(other.m);
+        return data.top();
+    }
+    void push(const T& value)
+    {
+        std::lock_guard<std::mutex> lock(other.m);
+        data.push(value);
+    }
+    void pop()
+    {
+        std::lock_guard<std::mutex> lock(other.m);
+        data.pop();
+    }
+};
+
 /* 
-For single-threded code this code is valid, for multi-threaded no. There might be a call to pop()
-from another thread that removes the last element in between the call to empty() and the call to top()
+For single-threded code this code is valid, for multi-threaded no.
+1. There might be a call to pop() from another thread that removes the last element in between the call to empty() and
+   the call to top().
+2. between the call to top() and the call to pop()
 */
 void do_sth(const int value) { std::cout << value; };
 void example_on_std_stack()
 {
-    std::stack<int> s;
+    stack_wrapper<int> s;
     s.push(1);
-    auto f_1 = [](std::stack<int>& s){
+    auto f_1 = [](stack_wrapper<int>& s){
         if(!s.empty())
         {
             const int value = s.top();
@@ -46,7 +86,7 @@ void example_on_std_stack()
 
     /// Ordering threads here doesnt guarantee that t_1 will execute its function first.
     std::thread t_1(f_1, std::ref(s));
-    std::thread t_2([](std::stack<int>& s){ s.pop(); }, std::ref(s));
+    std::thread t_2([](stack_wrapper<int>& s){ s.pop(); }, std::ref(s));
     
     t_1.join();
     t_2.join();

@@ -23,4 +23,5 @@ Biggest problems of mutuxes are:
     Solution: 
 * Protecting either too much or too little data 
 * Race conditions inherent to interfaces (example in stack_interface.cpp)
+    
 
