@@ -36,3 +36,9 @@ Where possible acquire a lock only when accessing the shared data and do process
 
 * Race conditions inherent to interfaces (example in stack_interface.cpp)
 
+- Alternative methods
+1. protecting shared data during initialization.
+Extreme but common case. Shared data needs protection only from concurrent access while its being initialized, but after that no explicit synchronization is required (only for read operations, data is read-only). Using a mutex in this case in unnecessary hit to performance. 
+
+Used when a shared resource is very expensive to create so we want to do it only when required eg. opening database connection, allocation of a lot of memory.
+This behaviour is called lazy-initialization. Each operation that requires a resource first checks to see if it has been initialized.  
