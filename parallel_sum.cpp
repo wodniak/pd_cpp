@@ -58,10 +58,12 @@ T parallel_accumulate(Iterator first,Iterator last,T init)
 
 int main()
 {
+    const uint number_of_points = 100'000'000; 
     std::vector<int> vi;
-    for(int i=0;i<100'000'000;++i)
+    vi.reserve(number_of_points);;
+    for(int i=0; i < number_of_points;++i)
     {
-        vi.push_back(3);
+        vi.emplace_back(3);
     }
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     int sum_parallel = parallel_accumulate(vi.begin(),vi.end(), 0);
