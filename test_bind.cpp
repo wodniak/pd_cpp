@@ -16,7 +16,8 @@ public:
     template<typename _Callable, typename... _Args>
     explicit B(_Callable&& __f, _Args&&... __args)
     {
-        std::bind(std::forward<_Callable>(__f), std::forward<_Args>(__args)...);
+        auto f = std::bind(std::forward<_Callable>(__f), std::forward<_Args>(__args)...);
+        f();
     }
 };
 

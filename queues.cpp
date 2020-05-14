@@ -2,6 +2,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <memory>
+#include <thread>
 
 namespace v1
 {
@@ -34,7 +35,7 @@ public:
     std::shared_ptr<T> wait_and_pop()
     {
         std::unique_lock<std::mutex> lk(mut);
-        data_cond.wait(lk,[this]{return !data_queue.empty();});
+        data_cond.wait(lk,[this]{return not data_queue.empty();});
         std::shared_ptr<T> res(
             std::make_shared<T>(std::move(data_queue.front())));
         data_queue.pop();
@@ -139,7 +140,30 @@ public:
 
 
 
+struct data_chunk{};
+data_chunk prepare_data() { return data_chunk(); }
+void prepare_data_thread(v1::threadsafe_queue<data_chunk>& rq)
+{
+    while(true)
+    {
+        const data_chunk data = prepare_data();
+        rq.push(data);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+}
+
+void data_procesing_thread(v1::threadsafe_queue<data_chunk>& rq)
+{
+    while(true)
+    {
+        data_chunk data;
+        rq.wait_and_pop(data);
+    }
+}
+
 int main()
 {
-    v1::threadsafe_queue<int> rq;
+    v1::threadsafe_queue<data_chunk> rq;
+    std::thread t_1(prepare_data_thread, std::ref(rq));
+    std::thread t_2(data_procesing_thread, std::ref(rq));
 }

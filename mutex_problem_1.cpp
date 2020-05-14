@@ -37,7 +37,7 @@ public:
 
     void do_something_else()
     {
-        unprotected->do_something();
+        unprotected->do_something(); ///<here access is not synchronized
     }
 };
 
