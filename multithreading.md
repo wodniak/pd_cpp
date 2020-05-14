@@ -25,6 +25,7 @@ Biggest problems of mutuxes are:
     Solution : Do not pass pointers and references to protected data outside the scope of the lock, whethehr by returning them from a function, storing them in externally visible memory, or passing them as arguments to user-supplied functions.
 
 * Deadlocks (example in mutex_problem_2.cpp)
+Usual situation is when threads are arguing over locks on mutexes - each of a pair of threads needs to lock both of a pair of mutexes to perform some operation, but each thread has only one locked mutex and is waiting for the other.
 Doesnt only occur with locks. You can create deadlock with two threads and no locks by having each thread call join() on the std::thead object for the other. In this case neither thread can make progress because its waiting for the other.
     Solution:
             - Avoid nested locks - dont acquire a lock if you already hold one. If you really need to than use std::lock to lock multiple mutexes at once without risk of a deadlock.
@@ -64,8 +65,21 @@ If a thread needs to wait for a specific one-off event, it obtains a 'future' re
 Futures are used to communicate between threads but future object itself do not provide synchronized access so you need to use mutexes for serialization.
 std::experimental::future (proposals for the new cpp standard versions) changes a little bit that behaviour but its a topic for other discussion.
 
-a) Returning values from background tasks
+a) Returning values from background tasks (example in parallel_sum.cpp)
 You can use std::async to start an 'asynchronous task' if you dont need the result of it right away. Async returns future object which eventually will hold the return value of the function. Calling get() on the future blocks the thread untill the future is ready and returns a value. 
 
-b) Passing tasks between threads
+note: Just as with std::thread, if the arguments are rvalues, the copies are created by moving the originals. 
+      This allows the use of move-only types (eg. unique_ptr) as both the function object and the arguments.
+      Also use std::ref() if you want to pass something by reference. Even if function takes an argument as a reference it will have a reference to the copied object to new thread stack.
+
+b) Passing tasks between threads (example in futures.cpp)
+You can wrap any callable into a std::packaged_task to keep clean interface when passing them around.
+Eg. GUI frameworks require that updated to the GUI are done from specific threads. So if another thread needs to update it, it must send a message to the right updater thread. With std::packaged_task executing thread doesnt require a custom message for each GUI-related activity. 
+
+TODO
+*promises
+*chains
+*barriers
+*latches
+*spinlocks
 
