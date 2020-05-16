@@ -3,7 +3,9 @@
 #include <condition_variable>
 #include <memory>
 #include <thread>
+#include <iostream>
 
+/// queue holding data
 namespace v1
 {
 template<typename T>
@@ -70,6 +72,7 @@ public:
 };
 } ///< namespace v1
 
+/// queue holding shared pointers to data
 namespace v2
 {
 template<typename T>
@@ -138,7 +141,54 @@ public:
 };
 }; ///< namespace v2
 
+/// queue with fine grained locks
+namespace v3
+{
 
+/// Implementation of queue container using linked list
+template <typename T>
+class queue
+{
+private:
+    struct node
+    {
+        T data;
+        std::unique_ptr<node> next;
+
+        node() : next(nullptr) {}
+        node(T data_) : data(std::move(data_)){}
+    };
+    std::unique_ptr<node> head;
+    node* tail;
+
+public:
+    queue() : tail(nullptr) {}
+    queue(const queue&) = delete;
+    queue& operator=(const queue&) = delete;
+
+    void push(T data)
+    {
+        std::unique_ptr<node> value_ptr(new node(std::move(data)));
+        node* new_tail = value_ptr.get();
+        
+        if(this->tail) { this->tail->next = std::move(value_ptr); }
+        else { this->head = std::move(value_ptr); }
+        this->tail = new_tail;
+    }
+    std::shared_ptr<T> pop()
+    {
+        if(not this->head) { return std::shared_ptr<T>(); }
+        const std::shared_ptr<T> head_value = std::make_shared<T>(this->head->data); ///< Access data from head
+
+        const std::unique_ptr<node> old_head = std::move(this->head); ///< make temporary from current head
+        this->head = std::move(old_head->next); ///< next is a new head
+        if(not this->head) { this->tail = nullptr; }
+
+        return head_value;
+    }
+    bool empty(){ if(not this->head){ return true; } else{ return false; }}
+};
+} ///< namespace v3
 
 struct data_chunk{};
 data_chunk prepare_data() { return data_chunk(); }
@@ -163,7 +213,17 @@ void data_procesing_thread(v1::threadsafe_queue<data_chunk>& rq)
 
 int main()
 {
-    v1::threadsafe_queue<data_chunk> rq;
-    std::thread t_1(prepare_data_thread, std::ref(rq));
-    std::thread t_2(data_procesing_thread, std::ref(rq));
+    // v1::threadsafe_queue<data_chunk> rq;
+    // std::thread t_1(prepare_data_thread, std::ref(rq));
+    // std::thread t_2(data_procesing_thread, std::ref(rq));
+
+    v3::queue<int> queue_1;
+    std::shared_ptr<int> val = queue_1.pop();
+    if(not val) { std::cout << "empty" << std::endl; }
+    queue_1.push(1);
+    queue_1.push(2);
+    val = queue_1.pop();
+    std::cout << *(val.get()) << std::endl;
+    val = queue_1.pop();
+    std::cout << *(val.get()) << std::endl;
 }
