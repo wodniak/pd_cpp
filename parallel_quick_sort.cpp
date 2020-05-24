@@ -160,7 +160,7 @@ std::list<T> parallel_quick_sort(std::list<T> input)
 }
 
 template<typename Numeric, typename Generator = std::mt19937>
-Numeric random(Numeric from, Numeric to)
+Numeric generate_random_value(Numeric from, Numeric to)
 {
     thread_local static Generator gen(std::random_device{}());
 
@@ -182,7 +182,7 @@ std::list<T> create_random_list(const size_t size, const T min, const T max)
     std::list<T> random_list;
     for(size_t i = 0; i < size; ++i)
     {
-        T random_value = random<T>(min, max);
+        T random_value = generate_random_value<T>(min, max);
         random_list.push_back(random_value);
     }
     return random_list;
@@ -196,6 +196,24 @@ void print_data(const std::list<T>& data)
     std::cout << "]" << std::endl << std::endl;
 }
 
+struct ScopedTimerMs
+{
+    typedef std::chrono::steady_clock::time_point time_point;
+    const std::string name;
+    const time_point begin;
+
+    ScopedTimerMs(const std::string& name_) : 
+        name(name_),
+        begin(std::chrono::steady_clock::now())
+    {}
+    ~ScopedTimerMs()
+    {
+        const time_point end = std::chrono::steady_clock::now();
+        std::cout << this->name << " time=" << 
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - this->begin).count() << "[ms]" << std::endl;
+    }
+};
+
 template<typename T, bool print = false>
 void perform_test(const size_t size, const T min, const T max)
 {
@@ -203,20 +221,19 @@ void perform_test(const size_t size, const T min, const T max)
     std::list<T> test_data = create_random_list<T>(std::move(size), std::move(min), std::move(max));
     if(print) { print_data(test_data); }
 
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    std::list<T> parallel_sorted_data = parallel_quick_sort(test_data);
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    std::cout << "sort_parallel: " << " time=" << 
-        std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
-    if(print) { print_data(parallel_sorted_data); }
+    std::list<T> parallel_sorted_data;
+    {
+        ScopedTimerMs timer("parallel_sorted_data");
+        parallel_sorted_data = parallel_quick_sort(test_data);
+        if(print) { print_data(parallel_sorted_data); }
+    }
     
     std::list<T> sequential_sorted_data(test_data); ///< prepare data
-    begin = std::chrono::steady_clock::now();
-    sequential_sorted_data.sort();
-    end = std::chrono::steady_clock::now();
-    std::cout << "sort_sequential: " << " time=" << 
-        std::chrono::duration_cast<std::chrono::milliseconds> (end - begin).count() << "[ms]" << std::endl;
-    if(print) { print_data(sequential_sorted_data); }
+    {
+        ScopedTimerMs timer("sequential_sorted_data");
+        sequential_sorted_data.sort();
+        if(print) { print_data(sequential_sorted_data); }
+    }
 
     assert(parallel_sorted_data == sequential_sorted_data); ///< sorted data should be exactly the same
 }
@@ -224,10 +241,8 @@ void perform_test(const size_t size, const T min, const T max)
 int main()
 {
     // perform_test<int, true>(50, 0, 1000);
-    
     // perform_test<int>(50000, 0, 1000);
     // perform_test<double>(50, 0.0, 1000.0);
     // perform_test<float>(50, 0.0f, 1000.0f);
     perform_test<int>(1000000, 0, 1000);
-
 }
