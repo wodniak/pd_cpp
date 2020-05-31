@@ -1,3 +1,8 @@
+/**
+ *  Cache optimization example
+ *  Based on cpp conference: https://www.youtube.com/watch?v=Nz9SiF0QVKY
+ */
+
 #include<iostream>
 #include <chrono>
 #include <thread>
@@ -23,10 +28,7 @@ struct ScopedTimerMs
             std::chrono::duration_cast<std::chrono::milliseconds>(end - this->begin).count() << "[ms]" << std::endl;
     }
 };
-} ///< namespace common
 
-namespace cache_non_friendly
-{
 struct Point3D
 {
     float x, y, z;
@@ -36,7 +38,10 @@ struct Color
 {
     int r, g, b;
 };
+} ///< namespace common
 
+namespace cache_non_friendly
+{
 class Shape
 {
 public:
@@ -44,12 +49,12 @@ public:
     ~Shape()=default;
 
     virtual void draw() = 0;
-    virtual void calculate_area() = 0;
+    virtual float calculate_area() = 0;
 
     typedef std::unique_ptr<Shape> Ptr;
 
 protected:
-    Color color;
+    common::Color color;
     bool is_visible;
 };
 
@@ -65,14 +70,15 @@ public:
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
     }
 
-    void calculate_area() override
+    float calculate_area() override
     {
         // std::cout << "Circle::calculate_area" << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(15));
+        return 0.f;
     }
     typedef std::unique_ptr<Circle> Ptr;
 private:
-    Point3D center;
+    common::Point3D center;
     float radius;
 };
 
@@ -88,14 +94,15 @@ public:
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    void calculate_area() override
+    float calculate_area() override
     {
         // std::cout << "Square::calculate_area" << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        return 0.f;
     }
     typedef std::unique_ptr<Square> Ptr;
 private:
-    Point3D top_left_pnt;
+    common::Point3D top_left_pnt;
     float side;
 };
 
@@ -123,17 +130,76 @@ void benchmark_fn(const uint size)
 
     {
         common::ScopedTimerMs timer("area time");
+        float total_area = 0;
         for(const auto& shape : shapes)
         {
-            shape->calculate_area();
+            total_area += shape->calculate_area();
         }
     }
 }
 } ///< namespace cache_non_friendly
 
 
+namespace cache_friendly
+{
+/**
+ *  What are we trying to do?
+ *      - draw shapes
+ *      - calculate area of shape
+ *
+ *  What do we need for that?
+ *      - drawing: color and geometry of figure
+ *      - area: geometry of figure
+ */
+
+struct CircleGeometry
+{
+    common::Point3D center;
+    float radius;
+};
+
+struct SquareGeometry
+{
+    common::Point3D top_left_pnt;
+    float side;
+};
+
+struct ShapesGeometry
+{
+    std::vector<CircleGeometry> circles;
+    std::vector<SquareGeometry> squares;
+};
+
+void draw(const ShapesGeometry& geometry)
+{
+
+}
+
+float calculate_area(const ShapesGeometry& geometry)
+{
+    common::ScopedTimerMs timer("area time");
+    float total_area = 0.f;
+    for(const auto& circle : geometry.circles)
+    {
+        // total_area += circle
+    }
+
+    for(const auto& square : geometry.circles)
+    {
+        // total_area += square
+    }
+    return total_area;
+}
+
+void benchmark_fn(const uint size)
+{
+
+}
+} ///< namespace cache_friendly
+
 int main()
 {
     cache_non_friendly::benchmark_fn(1000);
+    cache_friendly::benchmark_fn(1000);
     return 0;
 }
