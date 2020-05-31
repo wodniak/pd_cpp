@@ -9,6 +9,15 @@
 #include <memory>
 #include <vector>
 
+#define DRAW_MS 2
+#define AREA_MS 12
+
+#define CIRCLE_DRAW_IMPL_MS DRAW_MS
+#define CIRCLE_AREA_IMPL_MS AREA_MS
+
+#define SQUARE_DRAW_IMPL_MS DRAW_MS
+#define SQUARE_AREA_IMPL_MS AREA_MS
+
 namespace common
 {
 struct ScopedTimerMs
@@ -49,7 +58,7 @@ public:
     ~Shape()=default;
 
     virtual void draw() = 0;
-    virtual float calculate_area() = 0;
+    virtual float area() = 0;
 
     typedef std::unique_ptr<Shape> Ptr;
 
@@ -67,13 +76,13 @@ public:
     void draw() override
     {
         // std::cout << "Circle::draw" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+        std::this_thread::sleep_for(std::chrono::milliseconds(CIRCLE_DRAW_IMPL_MS));
     }
 
-    float calculate_area() override
+    float area() override
     {
-        // std::cout << "Circle::calculate_area" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+        // std::cout << "Circle::area" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(CIRCLE_AREA_IMPL_MS));
         return 0.f;
     }
     typedef std::unique_ptr<Circle> Ptr;
@@ -91,13 +100,13 @@ public:
     void draw() override
     {
         // std::cout << "Square::draw" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(SQUARE_DRAW_IMPL_MS));
     }
 
-    float calculate_area() override
+    float area() override
     {
-        // std::cout << "Square::calculate_area" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // std::cout << "Square::area" << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(SQUARE_AREA_IMPL_MS));
         return 0.f;
     }
     typedef std::unique_ptr<Square> Ptr;
@@ -121,7 +130,7 @@ void benchmark_fn(const uint size)
 
     /// Measure time for each call
     {
-        common::ScopedTimerMs timer("draw time");
+        common::ScopedTimerMs timer("[cache_non_friendly] draw");
         for(const auto& shape : shapes)
         {
             shape->draw();
@@ -129,11 +138,11 @@ void benchmark_fn(const uint size)
     }
 
     {
-        common::ScopedTimerMs timer("area time");
+        common::ScopedTimerMs timer("[cache_non_friendly] area");
         float total_area = 0;
         for(const auto& shape : shapes)
         {
-            total_area += shape->calculate_area();
+            total_area += shape->area();
         }
     }
 }
@@ -168,32 +177,104 @@ struct ShapesGeometry
 {
     std::vector<CircleGeometry> circles;
     std::vector<SquareGeometry> squares;
+    ShapesGeometry(const uint size)
+    {
+        this->circles.reserve(size);
+        this->squares.reserve(size);
+    }
 };
 
-void draw(const ShapesGeometry& geometry)
+enum class ShapeKind : int8_t
 {
+    Circle = 0,
+    Square
+};
+
+struct ShapeID
+{
+    ShapeKind kind;
+    std::size_t index;
+};
+
+struct ShapeRender
+{
+    using shape = std::pair<ShapeID, common::Color>;
+    std::vector<shape> visible;
+    ShapeRender(const uint size)
+    {
+        this->visible.reserve(2 * size);
+    }
+};
+
+void draw(const ShapeRender& render, const ShapesGeometry& geometry)
+{
+    common::ScopedTimerMs timer("[cache_friendly] draw");
+    for(const auto& shape : render.visible)
+    {
+        if(shape.first.kind == ShapeKind::Circle)
+        {
+            // draw_circle(geometry.circles[shape.first.id.index], color);
+            std::this_thread::sleep_for(std::chrono::milliseconds(CIRCLE_DRAW_IMPL_MS)); ///< implementation
+        }
+        else if(shape.first.kind == ShapeKind::Square)
+        {
+            // draw_square(geometry.squares[shape.first.id.index], color);
+            std::this_thread::sleep_for(std::chrono::milliseconds(SQUARE_DRAW_IMPL_MS)); ///< implementation
+        }
+    }
 
 }
 
-float calculate_area(const ShapesGeometry& geometry)
+float area(const ShapesGeometry& geometry)
 {
-    common::ScopedTimerMs timer("area time");
+    common::ScopedTimerMs timer("[cache_friendly] area");
     float total_area = 0.f;
     for(const auto& circle : geometry.circles)
     {
-        // total_area += circle
+        std::this_thread::sleep_for(std::chrono::milliseconds(CIRCLE_AREA_IMPL_MS)); ///< implementation
     }
 
     for(const auto& square : geometry.circles)
     {
-        // total_area += square
+        std::this_thread::sleep_for(std::chrono::milliseconds(SQUARE_AREA_IMPL_MS)); ///< implementation
     }
     return total_area;
 }
 
 void benchmark_fn(const uint size)
 {
+    using shape = std::pair<ShapeID, common::Color>;
+    ShapesGeometry shapes(size);
+    ShapeRender render(size);
+    for(uint i = 0; i < size; ++i)
+    {
+        if(i % 2 == 0)
+        {
+            CircleGeometry circle;
+            shapes.circles.push_back(std::move(circle));
 
+            ShapeID circle_id;
+            circle_id.index = i;
+            circle_id.kind = ShapeKind::Circle;
+            common::Color color;
+            render.visible.emplace_back(circle_id, color);
+        }
+        else
+        {
+            SquareGeometry square;
+            shapes.squares.push_back(std::move(square));
+
+            ShapeID circle_id;
+            circle_id.index = i;
+            circle_id.kind = ShapeKind::Square;
+            common::Color color;
+            render.visible.emplace_back(circle_id, color);
+        }
+    }
+
+    /// Measure time for each call
+    draw(render, shapes);
+    const float Result = area(shapes);
 }
 } ///< namespace cache_friendly
 
